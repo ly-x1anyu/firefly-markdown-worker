@@ -1,0 +1,17 @@
+{
+  "name": "firefly-markdown-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Firefly-Markdown backend: GitHub OAuth + Contents API proxy + image bed (Cloudflare Workers + Hono + D1 + R2)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

@@ -1,0 +1,26 @@
+name = "firefly-markdown-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# D1 数据库：存放 OAuth 会话与站点配置
+[[d1_databases]]
+binding = "DB"
+database_name = "fmd-db"
+database_id = "REPLACE_WITH_YOUR_D1_ID"   # 用 `wrangler d1 create fmd-db` 创建后填入
+
+# R2 存储桶：图片床（后续里程碑使用）
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "fmd-images"
+
+[vars]
+# GitHub OAuth App 的 Client ID（非机密，可放 vars）
+GITHUB_CLIENT_ID = "REPLACE_WITH_OAUTH_APP_CLIENT_ID"
+# 允许的前端源（逗号分隔）；生产环境请只保留你的域名
+FRONTEND_ORIGIN = "http://localhost:8123,https://your-blog.vercel.app"
+
+# 以下为机密，请用命令设置（不要写进仓库）：
+#   wrangler secret put GITHUB_CLIENT_SECRET
+#   wrangler secret put SESSION_SECRET
+# GITHUB_CLIENT_SECRET = GitHub OAuth App 的 client secret
+# SESSION_SECRET       = 任意长随机串，用于加密存储 GitHub access token（AES-GCM 密钥派生源）
