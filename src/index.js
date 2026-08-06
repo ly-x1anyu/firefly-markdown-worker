@@ -1,5 +1,5 @@
-// Firefly-Markdown 后端：GitHub OAuth 登录 + Contents API 代理 + 图片床（预留）
-// 技术栈：Cloudflare Workers + Hono + D1 + R2
+// Firefly-Markdown 后端：GitHub OAuth 登录 + Contents API 代理 ）
+// 技术栈：Cloudflare Workers + Hono + D1 
 // 设计：纯前端不再直接接触 GitHub token；浏览器持「会话令牌」访问本后端，
 //       后端用服务端持有的 GitHub OAuth token 代理 api.github.com。
 
@@ -59,7 +59,7 @@ async function authUser(c) {
   const m = auth.match(/^Bearer\s+(.+)$/i);
   if (!m) return null;
   const token = m[1];
-  const row = c.env.DB.prepare('SELECT * FROM sessions WHERE token=? AND expires_at>?')
+  const row = await c.env.DB.prepare('SELECT * FROM sessions WHERE token=? AND expires_at>?')
     .bind(token, Date.now()).first();
   if (!row) return null;
   try { row.github_token = await aesDecrypt(row.github_token, c.env.SESSION_SECRET); }
@@ -71,11 +71,11 @@ async function authUser(c) {
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
 // 1) 发起 GitHub OAuth：重定向到 GitHub 授权页
-app.get('/api/auth/login', (c) => {
+app.get('/api/auth/login', async (c) => {
   const fallback = (c.env.FRONTEND_ORIGIN || 'http://localhost:8123').split(',')[0].trim();
   const redirect = c.req.query('redirect') || fallback;
   const state = randToken(16);
-  c.env.DB.prepare('INSERT OR REPLACE INTO oauth_states (state, expires_at) VALUES (?, ?)')
+  await c.env.DB.prepare('INSERT OR REPLACE INTO oauth_states (state, expires_at) VALUES (?, ?)')
     .bind(state, Date.now() + 10 * 60 * 1000).run();
   const clientId = c.env.GITHUB_CLIENT_ID;
   const callback = new URL('/api/auth/callback', new URL(c.req.url)).href;
@@ -92,9 +92,9 @@ app.get('/api/auth/callback', async (c) => {
   const fallback = (c.env.FRONTEND_ORIGIN || 'http://localhost:8123').split(',')[0].trim();
   const redirect = c.req.query('redirect') || fallback;
 
-  const st = c.env.DB.prepare('SELECT * FROM oauth_states WHERE state=?').bind(state).first();
+  const st = await c.env.DB.prepare('SELECT * FROM oauth_states WHERE state=?').bind(state).first();
   if (!st || st.expires_at < Date.now()) return c.text('invalid or expired state', 400);
-  c.env.DB.prepare('DELETE FROM oauth_states WHERE state=?').bind(state).run();
+  await c.env.DB.prepare('DELETE FROM oauth_states WHERE state=?').bind(state).run();
   if (!code) return c.text('missing code', 400);
 
   const clientId = c.env.GITHUB_CLIENT_ID;
@@ -116,7 +116,7 @@ app.get('/api/auth/callback', async (c) => {
   const token = randToken(32);
   const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
   const encTok = await aesEncrypt(tk.access_token, c.env.SESSION_SECRET);
-  c.env.DB.prepare('INSERT OR REPLACE INTO sessions (token, github_login, github_token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+  await c.env.DB.prepare('INSERT OR REPLACE INTO sessions (token, github_login, github_token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
     .bind(token, user.login, encTok, Date.now(), expires).run();
 
   const back = new URL(redirect);
@@ -135,7 +135,7 @@ app.get('/api/auth/me', async (c) => {
 // 4) 登出
 app.post('/api/auth/logout', async (c) => {
   const u = await authUser(c);
-  if (u) c.env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(u.token).run();
+  if (u) await c.env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(u.token).run();
   return c.json({ ok: true });
 });
 
