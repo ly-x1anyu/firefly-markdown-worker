@@ -6,7 +6,7 @@ compatibility_date = "2024-09-23"
 [[d1_databases]]
 binding = "DB"
 database_name = "fmd-db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"   # 用 `wrangler d1 create fmd-db` 创建后填入
+database_id = "dc965e29-9b13-4888-9b59-2e38988fc1f3"
 
 # R2 存储桶：图片床（后续里程碑使用）
 [[r2_buckets]]
@@ -15,9 +15,9 @@ bucket_name = "fmd-images"
 
 [vars]
 # GitHub OAuth App 的 Client ID（非机密，可放 vars）
-GITHUB_CLIENT_ID = "REPLACE_WITH_OAUTH_APP_CLIENT_ID"
+GITHUB_CLIENT_ID = "Ov23lieDHC2MRMfrWAkV"
 # 允许的前端源（逗号分隔）；生产环境请只保留你的域名
-FRONTEND_ORIGIN = "http://localhost:8123,https://your-blog.vercel.app"
+FRONTEND_ORIGIN = "https://md.x1anyu.cn,http://localhost:8123"
 
 # 以下为机密，请用命令设置（不要写进仓库）：
 #   wrangler secret put GITHUB_CLIENT_SECRET
