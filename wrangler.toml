@@ -8,11 +8,6 @@ binding = "DB"
 database_name = "fmd-db"
 database_id = "dc965e29-9b13-4888-9b59-2e38988fc1f3"
 
-# R2 存储桶：图片床（后续里程碑使用）
-[[r2_buckets]]
-binding = "IMAGES"
-bucket_name = "fmd-images"
-
 [vars]
 # GitHub OAuth App 的 Client ID（非机密，可放 vars）
 GITHUB_CLIENT_ID = "Ov23lieDHC2MRMfrWAkV"

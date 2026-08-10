@@ -53,6 +53,18 @@ function randToken(n = 32) {
   return [...a].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// 校验重定向地址：仅允许 FRONTEND_ORIGIN 白名单内的源，防止开放重定向 + token 泄露
+function resolveRedirect(c, requested) {
+  const allowed = (c.env.FRONTEND_ORIGIN || 'http://localhost:8123')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const fallback = allowed[0] || 'http://localhost:8123';
+  if (!requested) return fallback;
+  try {
+    const u = new URL(requested);
+    return allowed.includes(u.origin) ? requested : fallback;
+  } catch (e) { return fallback; }
+}
+
 // ---------- 鉴权 ----------
 async function authUser(c) {
   const auth = c.req.header('Authorization') || '';
@@ -72,15 +84,16 @@ app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
 // 1) 发起 GitHub OAuth：重定向到 GitHub 授权页
 app.get('/api/auth/login', async (c) => {
-  const fallback = (c.env.FRONTEND_ORIGIN || 'http://localhost:8123').split(',')[0].trim();
-  const redirect = c.req.query('redirect') || fallback;
+  const redirect = resolveRedirect(c, c.req.query('redirect'));
   const state = randToken(16);
   await c.env.DB.prepare('INSERT OR REPLACE INTO oauth_states (state, expires_at) VALUES (?, ?)')
     .bind(state, Date.now() + 10 * 60 * 1000).run();
   const clientId = c.env.GITHUB_CLIENT_ID;
-  const callback = new URL('/api/auth/callback', new URL(c.req.url)).href;
+  // 把已校验的 redirect 透传给 GitHub，使其随回调原样带回，登录后才能回到原页面
+  const callback = new URL('/api/auth/callback', new URL(c.req.url));
+  callback.searchParams.set('redirect', redirect);
   const ghUrl = 'https://github.com/login/oauth/authorize?client_id=' +
-    encodeURIComponent(clientId) + '&redirect_uri=' + encodeURIComponent(callback) +
+    encodeURIComponent(clientId) + '&redirect_uri=' + encodeURIComponent(callback.href) +
     '&scope=' + encodeURIComponent('repo') + '&state=' + state + '&allow_signup=false';
   return c.redirect(ghUrl);
 });
@@ -89,8 +102,7 @@ app.get('/api/auth/login', async (c) => {
 app.get('/api/auth/callback', async (c) => {
   const code = c.req.query('code');
   const state = c.req.query('state');
-  const fallback = (c.env.FRONTEND_ORIGIN || 'http://localhost:8123').split(',')[0].trim();
-  const redirect = c.req.query('redirect') || fallback;
+  const redirect = resolveRedirect(c, c.req.query('redirect'));
 
   const st = await c.env.DB.prepare('SELECT * FROM oauth_states WHERE state=?').bind(state).first();
   if (!st || st.expires_at < Date.now()) return c.text('invalid or expired state', 400);
@@ -99,11 +111,15 @@ app.get('/api/auth/callback', async (c) => {
 
   const clientId = c.env.GITHUB_CLIENT_ID;
   const clientSecret = c.env.GITHUB_CLIENT_SECRET;
-  const callback = new URL('/api/auth/callback', new URL(c.req.url)).href;
+  // 换 token 的 redirect_uri 必须与授权请求时完全一致（含 ?redirect=），否则 GitHub 报 mismatch
+  const callback = new URL('/api/auth/callback', new URL(c.req.url));
+  callback.search = '';
+  callback.searchParams.set('redirect', redirect);
+  const callbackHref = callback.href;
   const tkRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callback })
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callbackHref })
   });
   const tk = await tkRes.json();
   if (!tk.access_token) return c.text('token exchange failed: ' + (tk.error_description || ''), 400);

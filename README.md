@@ -1,7 +1,7 @@
 # Firefly-Markdown 后端（Cloudflare Workers + Hono）
 
-Firefly-Markdown 的**可选后端**：把 GitHub 鉴权从「用户自建 PAT」升级为「服务端 OAuth 代理」，
-并预留图片床（R2）。前端仍是零依赖纯前端；启用服务器模式后，浏览器不再直接接触 GitHub token，
+Firefly-Markdown 的**可选后端**：把 GitHub 鉴权从「用户自建 PAT」升级为「服务端 OAuth 代理」。
+前端仍是零依赖纯前端；启用服务器模式后，浏览器不再直接接触 GitHub token，
 改为持有一个「会话令牌」访问本后端，由后端用服务端持有的 GitHub OAuth token 代理 `api.github.com`。
 
 > 纯前端 PAT 直连模式**仍然保留**作为 fallback：前端「后端地址」留空时自动走 PAT 直连。
@@ -12,7 +12,7 @@ Firefly-Markdown 的**可选后端**：把 GitHub 鉴权从「用户自建 PAT�
 浏览器(Firefly-Markdown 前端)
    │  Bearer <会话令牌>
    ▼
-Cloudflare Worker (Hono)  ── D1(sessions / site_config) + R2(图片床, 后续)
+Cloudflare Worker (Hono)  ── D1(sessions / site_config)
    │  Bearer <GitHub OAuth token>（服务端持有，加密存 D1）
    ▼
 api.github.com  (Contents API：读/写/删文章，保存即提交)
@@ -46,7 +46,6 @@ OAuth App 默认授予对**自己账号**仓库的访问；若要操作组织仓
 cd worker
 npm install                # 安装 hono + wrangler
 npx wrangler d1 create fmd-db
-npx wrangler r2 bucket create fmd-images
 # 把 d1 create 输出的 database_id 填入 wrangler.toml 的 database_id
 # 把 GITHUB_CLIENT_ID 填入 wrangler.toml 的 [vars]
 npx wrangler secret put GITHUB_CLIENT_SECRET   # 粘贴 OAuth App 的 client secret
@@ -79,5 +78,4 @@ npx wrangler deploy       # 部署到生产
 - 本后端目前仅做「代理 + 会话」，不做多用户隔离/配额；如需多作者，可在 `sessions`/`site_config` 之上扩展。
 
 ## 后续里程碑（已在路线中）
-- 图片床：拖拽/剪贴板上传经后端到 R2，图片管理器浏览/删除（R2 绑定已预留）。
 - 站点配置：社交链接/友链存 `site_config`，面板内直接改（不再碰 `src/config/*.ts`）。
